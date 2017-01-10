@@ -8,8 +8,6 @@
 // http://opensource.org/licenses/mit-license.php
 //
 
-// Package structpbconv provides a method which converts a structpb.Struct instance
-// to another given structure instance.
 package structpbconv
 
 import (
