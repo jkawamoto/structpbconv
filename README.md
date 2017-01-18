@@ -26,7 +26,7 @@ import (
 
 type ActivityPayload struct {
 	EventTimestampUs string `structpb:"event_timestamp_us"`
-	EventType        string `structpb:"vent_type"`
+	EventType        string `structpb:"event_type"`
 	TraceID          string `structpb:"trace_id"`
 	Actor            struct {
 		User string
