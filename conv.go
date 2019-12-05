@@ -11,6 +11,7 @@
 package structpbconv
 
 import (
+	"fmt"
 	"reflect"
 	"strings"
 
@@ -21,39 +22,84 @@ import (
 const tagKey = "structpb"
 
 // Convert converts a structpb.Struct object to a concrete object.
-func Convert(src *structpb.Struct, dest interface{}) error {
+func Convert(src *structpb.Struct, dst interface{}) error {
+	return convertStruct(src, reflect.ValueOf(dst))
+}
 
-	r := reflect.Indirect(reflect.ValueOf(dest))
-	for i := 0; i < r.NumField(); i++ {
-
-		target := r.Field(i)
-		targetType := r.Type().Field(i)
-
-		name := targetType.Tag.Get(tagKey)
-		if name == "" {
-			name = strings.ToLower(targetType.Name)
-		}
-
-		if v, ok := src.GetFields()[name]; ok {
-			switch t := v.GetKind().(type) {
-			case *structpb.Value_BoolValue:
-				target.SetBool(t.BoolValue)
-			case *structpb.Value_ListValue:
-				target.Set(reflect.ValueOf(t.ListValue))
-			case *structpb.Value_NullValue:
-				target.Set(reflect.ValueOf(t.NullValue))
-			case *structpb.Value_NumberValue:
-				target.Set(reflect.ValueOf(t.NumberValue))
-			case *structpb.Value_StringValue:
-				target.SetString(t.StringValue)
-			case *structpb.Value_StructValue:
-				Convert(t.StructValue, target.Addr().Interface())
-			}
-
-		}
-
+func toPrimitive(src *structpb.Value) (reflect.Value, bool) {
+	switch t := src.GetKind().(type) {
+	case *structpb.Value_BoolValue:
+		return reflect.ValueOf(t.BoolValue), true
+	case *structpb.Value_NullValue:
+		return reflect.ValueOf(nil), true
+	case *structpb.Value_NumberValue:
+		return reflect.ValueOf(t.NumberValue), true
+	case *structpb.Value_StringValue:
+		return reflect.ValueOf(t.StringValue), true
+	default:
+		return reflect.Value{}, false
 	}
+}
 
+func convertValue(src *structpb.Value, dst reflect.Value) error {
+	dst = reflect.Indirect(dst)
+	if v, ok := toPrimitive(src); ok {
+		if !v.Type().AssignableTo(dst.Type()) {
+			if !v.Type().AssignableTo(dst.Type()) {
+				return fmt.Errorf("cannot assign %T to %s", src.GetKind(), dst.Type())
+			}
+			v = v.Convert(dst.Type())
+		}
+		dst.Set(v)
+		return nil
+	}
+	switch t := src.GetKind().(type) {
+	case *structpb.Value_ListValue:
+		return convertList(t.ListValue, dst)
+	case *structpb.Value_StructValue:
+		return convertStruct(t.StructValue, dst)
+	default:
+		return fmt.Errorf("unsuported value: %T", src.GetKind())
+	}
+}
+
+func convertList(src *structpb.ListValue, dst reflect.Value) error {
+	dst = reflect.Indirect(dst)
+	if dst.Kind() != reflect.Slice {
+		return fmt.Errorf("cannot convert %T to %s", src, dst.Type())
+	}
+	values := src.GetValues()
+	elemType := dst.Type().Elem()
+	converted := make([]reflect.Value, len(values), len(values))
+	for i, value := range values {
+		element := reflect.New(elemType).Elem()
+		if err := convertValue(value, element); err != nil {
+			return err
+		}
+		converted[i] = element
+	}
+	dst.Set(reflect.Append(dst, converted...))
 	return nil
+}
 
+func convertStruct(src *structpb.Struct, dst reflect.Value) error {
+	dst = reflect.Indirect(dst)
+	if dst.Kind() != reflect.Struct {
+		return fmt.Errorf("cannot convert %T to %s", src, dst.Type())
+	}
+	fields := src.GetFields()
+	for i := 0; i < dst.NumField(); i++ {
+		target := dst.Field(i)
+		field := dst.Type().Field(i)
+		name := field.Tag.Get(tagKey)
+		if name == "" {
+			name = strings.ToLower(field.Name)
+		}
+		if v, ok := fields[name]; ok {
+			if err := convertValue(v, target); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }

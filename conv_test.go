@@ -10,7 +10,12 @@
 
 package structpbconv
 
-import structpb "github.com/golang/protobuf/ptypes/struct"
+import (
+	"reflect"
+	"testing"
+
+	structpb "github.com/golang/protobuf/ptypes/struct"
+)
 
 type ActivityPayload struct {
 	EventTimestampUs string `structpb:"event_timestamp_us"`
@@ -32,6 +37,36 @@ type ActivityPayload struct {
 		Type string
 		ID   string
 		Name string
+	}
+	Items []string
+}
+
+func TestConvert(t *testing.T) {
+	src := &structpb.Struct{
+		Fields: map[string]*structpb.Value{
+			"items": &structpb.Value{
+				Kind: &structpb.Value_ListValue{
+					ListValue: &structpb.ListValue{
+						Values: []*structpb.Value{
+							{
+								Kind: &structpb.Value_StringValue{
+									StringValue: "Hello World",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	var payload ActivityPayload
+	if err := Convert(src, &payload); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(payload, ActivityPayload{
+		Items: []string{"Hello World"},
+	}) {
+		t.Fatal("failed to convert")
 	}
 }
 
