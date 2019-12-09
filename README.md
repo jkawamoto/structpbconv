@@ -20,7 +20,7 @@ Note that to specify a field name, use `structpb` tag.
 ```go
 import (
 	"github.com/golang/protobuf/ptypes/struct"
-  "github.com/jkawamoto/structpbconv"
+	"github.com/jkawamoto/structpbconv"
 )
 
 
@@ -49,9 +49,9 @@ type ActivityPayload struct {
 
 
 func NewActivityPayload(payload *structpb.Struct) *ActivityPayload {
-  var res ActivityPayload
+	var res ActivityPayload
 	structpbconv.Convert(payload, &res)
-  return &res
+	return &res
 }
 ```
 
