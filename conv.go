@@ -45,7 +45,7 @@ func convertValue(src *structpb.Value, dst reflect.Value) error {
 	dst = reflect.Indirect(dst)
 	if v, ok := toPrimitive(src); ok {
 		if !v.Type().AssignableTo(dst.Type()) {
-			if !v.Type().AssignableTo(dst.Type()) {
+			if !v.Type().ConvertibleTo(dst.Type()) {
 				return fmt.Errorf("cannot assign %T to %s", src.GetKind(), dst.Type())
 			}
 			v = v.Convert(dst.Type())
