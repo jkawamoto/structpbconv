@@ -8,13 +8,15 @@
 // http://opensource.org/licenses/mit-license.php
 //
 
-package structpbconv
+package structpbconv_test
 
 import (
 	"reflect"
 	"testing"
 
 	structpb "github.com/golang/protobuf/ptypes/struct"
+
+	"github.com/jkawamoto/structpbconv"
 )
 
 type ActivityPayload struct {
@@ -39,12 +41,13 @@ type ActivityPayload struct {
 		Name string
 	}
 	Items []string
+	Map   map[string]string
 }
 
 func TestConvert(t *testing.T) {
 	src := &structpb.Struct{
 		Fields: map[string]*structpb.Value{
-			"items": &structpb.Value{
+			"items": {
 				Kind: &structpb.Value_ListValue{
 					ListValue: &structpb.ListValue{
 						Values: []*structpb.Value{
@@ -57,14 +60,30 @@ func TestConvert(t *testing.T) {
 					},
 				},
 			},
+			"map": {
+				Kind: &structpb.Value_StructValue{
+					StructValue: &structpb.Struct{
+						Fields: map[string]*structpb.Value{
+							"key1": {
+								Kind: &structpb.Value_StringValue{
+									StringValue: "value1",
+								},
+							},
+						},
+					},
+				},
+			},
 		},
 	}
 	var payload ActivityPayload
-	if err := Convert(src, &payload); err != nil {
+	if err := structpbconv.Convert(src, &payload); err != nil {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(payload, ActivityPayload{
 		Items: []string{"Hello World"},
+		Map: map[string]string{
+			"key1": "value1",
+		},
 	}) {
 		t.Fatal("failed to convert")
 	}
@@ -78,7 +97,7 @@ func ExampleConvert() {
 	switch s := payload.(type) {
 	case *structpb.Struct:
 		res = &ActivityPayload{}
-		Convert(s, res)
+		structpbconv.Convert(s, res)
 	default:
 		// Error: Given payload is not an instance of *structpb.Struct.
 	}
